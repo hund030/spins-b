@@ -1,9 +1,3 @@
-.. image:: https://travis-ci.com/stanfordnqp/spins-b.svg?branch=master
-    :target: https://travis-ci.com/stanfordnqp/spins-b
-    
-.. image:: https://codecov.io/gh/stanfordnqp/spins-b/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/stanfordnqp/spins-b
-    
 SPINS-B
 =======
 
@@ -14,10 +8,6 @@ at Stanford University. For commercial use, the full version can be licensed
 through the `Stanford Office of Technology and Licensing <http://techfinder.stanford.edu/technologies/S18-012_inverse-design-software-for>`_ (see FAQ).
 
 The overall architecture is explained in our paper `Nanophotonic Inverse Design with SPINS: Software Architecture and Practical Considerations <https://arxiv.org/abs/1910.04829>`_. 
-
-Documentation
--------------
-`spins-b.readthedocs.io documentation <http://spins-b.readthedocs.io>`_ in progress.
 
 
 Features
