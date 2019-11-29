@@ -56,7 +56,7 @@ def run_opt(save_folder: str) -> None:
     obj, monitors = create_objective(
         sim_space, wg_thickness=wg_thickness)
     trans_list = create_transformations(
-        obj, monitors, sim_space, 60, min_feature=100)
+        obj, monitors, sim_space, 200, num_stages=5, min_feature=100)
     plan = optplan.OptimizationPlan(transformations=trans_list)
 
     # Save the optimization plan so we have an exact record of all the
@@ -77,8 +77,11 @@ def create_sim_space(
         gds_fg_name: str,
         gds_bg_name: str,
         wg_thickness: float = 220,
+        wg_length: float = 3000,
+        wg_width: float = 200,
+        buffer_len: float = 250,
         dx: int = 40,
-        num_pmls: int = 10,
+        num_pmls: int = 10
 ) -> optplan.SimulationSpace:
     """Creates the simulation space.
 
@@ -95,6 +98,27 @@ def create_sim_space(
     Returns:
         A `SimulationSpace` description.
     """
+
+    sim_size = wg_length + buffer_len * 2
+
+    waveguide_input = gdspy.Rectangle((-sim_size/2, -wg_width/2),
+                                      (-wg_length/2, wg_width/2), 100)
+    waveguide_output = gdspy.Rectangle((-wg_width/2, -sim_size/2),
+                                      (wg_width/2, -wg_length/2), 100)
+    design_region = gdspy.Rectangle((-wg_length/2, -wg_length/2),
+                                    (wg_length/2, wg_length/2), 100)
+    
+    gds_fg = gdspy.Cell("FOREGROUND", exclude_from_current=True)
+    gds_fg.add(waveguide_input)
+    gds_fg.add(waveguide_output)
+    gds_fg.add(design_region)
+
+    gds_bg = gdspy.Cell("BACKGROUND", exclude_from_current=True)
+    gds_bg.add(waveguide_input)
+    gds_bg.add(waveguide_output)
+
+    gdspy.write_gds(gds_fg_name, [gds_fg], unit=1e-9, precision=1e-9)
+    gdspy.write_gds(gds_bg_name, [gds_bg], unit=1e-9, precision=1e-9)
 
     mat_oxide = optplan.Material(index=optplan.ComplexNumber(real=1.5))
     stack = [
@@ -128,7 +152,7 @@ def create_sim_space(
         eps_bg=optplan.GdsEps(gds=gds_bg_name, mat_stack=mat_stack),
         sim_region=optplan.Box3d(
             center=[0, 0, 0],
-            extents=[5000, 5000, dx],
+            extents=[wg_length*2, wg_length*2, dx],
         ),
         selection_matrix_type="direct_lattice",
         pml_thickness=[num_pmls, num_pmls, num_pmls, num_pmls, 0, 0],
@@ -139,7 +163,12 @@ def create_sim_space(
 
 def create_objective(
         sim_space: optplan.SimulationSpace,
-        wg_thickness: float,
+        wg_thickness: float = 220,
+        wg_length: float = 3000,
+        wg_width: float = 200,
+        buffer_len: float = 250,
+        dx: int = 40,
+        num_pmls: int = 10
 ) -> Tuple[optplan.Function, List[optplan.Monitor]]:
     """Creates an objective function.
 
@@ -159,6 +188,7 @@ def create_objective(
     monitor_list = []
 
     wlen = 1550
+    sim_size = wg_length + buffer_len * 2
     epsilon = optplan.Epsilon(
         simulation_space=sim_space,
         wavelength=wlen,
@@ -171,8 +201,8 @@ def create_objective(
             polarization_angle=0,
             theta=np.deg2rad(-10),
             psi=np.pi / 2,
-            center=[-1750, 0, 0],
-            extents=[40, 1500, 600],
+            center=[-sim_size/2, 0, 0],
+            extents=[dx, 1500, 600],
             normal=[1, 0, 0],
             power=1,
             normalize_by_sim=True,
@@ -191,8 +221,8 @@ def create_objective(
         ))
 
     wg_overlap = optplan.WaveguideModeOverlap(
-        center=[0, -1750, 0],
-        extents=[600, 40, 600],
+        center=[0, -sim_size/2, 0],
+        extents=[600, dx, 600],
         mode_num=0,
         normal=[0, -1, 0],
         power=1.0,
@@ -245,7 +275,7 @@ def create_transformations(
         # control points on the order of `min_feature / GRID_SPACING`.
         undersample=3.5 * min_feature / GRID_SPACING,
         simulation_space=sim_space,
-        init_method=optplan.UniformInitializer(min_val=0.6, max_val=0.9),
+        init_method=optplan.UniformInitializer(min_val=0, max_val=1),
     )
 
     iters = max(cont_iters // num_stages, 1)
