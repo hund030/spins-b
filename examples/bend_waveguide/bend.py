@@ -36,6 +36,12 @@ MINIMIZE_BACKREFLECTION = False
 
 # Yee cell grid spacing in nanometers.
 GRID_SPACING = 40
+wg_thickness = 220
+wg_length = 30000
+wg_width = 2000
+buffer_len = 2500
+dx = 40
+num_pmls = 10
 
 def run_opt(save_folder: str) -> None:
     """Main optimization script.
@@ -45,16 +51,25 @@ def run_opt(save_folder: str) -> None:
     Args:
         save_folder: Location to save the optimization data.
     """
-    os.makedirs(save_folder)
-
-    wg_thickness = 220
+    # os.makedirs(save_folder)
+    os.makedirs(save_folder, exist_ok=True)
 
     sim_space = create_sim_space(
         "sim_fg.gds",
         "sim_bg.gds",
-        wg_thickness=wg_thickness)
+        wg_thickness=wg_thickness,
+        wg_length=wg_length,
+        wg_width=wg_width,
+        buffer_len=buffer_len,
+        dx=dx,
+        num_pmls=num_pmls)
     obj, monitors = create_objective(
-        sim_space, wg_thickness=wg_thickness)
+        sim_space, wg_thickness=wg_thickness,
+        wg_length=wg_length,
+        wg_width=wg_width,
+        buffer_len=buffer_len,
+        dx=dx,
+        num_pmls=num_pmls)
     trans_list = create_transformations(
         obj, monitors, sim_space, 200, num_stages=5, min_feature=100)
     plan = optplan.OptimizationPlan(transformations=trans_list)
@@ -120,17 +135,17 @@ def create_sim_space(
     gdspy.write_gds(gds_fg_name, [gds_fg], unit=1e-9, precision=1e-9)
     gdspy.write_gds(gds_bg_name, [gds_bg], unit=1e-9, precision=1e-9)
 
-    mat_oxide = optplan.Material(index=optplan.ComplexNumber(real=1.5))
+    mat_oxide = optplan.Material(index=optplan.ComplexNumber(real=1.45))
     stack = [
         optplan.GdsMaterialStackLayer(
             foreground=mat_oxide,
             background=mat_oxide,
             gds_layer=[100, 0],
-            extents=[-10000, -wg_thickness / 2],
+            extents=[-wg_length*3, -wg_thickness / 2],
         ),
         optplan.GdsMaterialStackLayer(
             foreground=optplan.Material(
-                index=optplan.ComplexNumber(real=2.2)),
+                index=optplan.ComplexNumber(real=1.5)),
             background=mat_oxide,
             gds_layer=[100, 0],
             extents=[-wg_thickness / 2, wg_thickness / 2],
@@ -202,7 +217,7 @@ def create_objective(
             theta=np.deg2rad(-10),
             psi=np.pi / 2,
             center=[-sim_size/2, 0, 0],
-            extents=[dx, 1500, 600],
+            extents=[dx, wg_length/2, wg_length/5],
             normal=[1, 0, 0],
             power=1,
             normalize_by_sim=True,
@@ -222,7 +237,7 @@ def create_objective(
 
     wg_overlap = optplan.WaveguideModeOverlap(
         center=[0, -sim_size/2, 0],
-        extents=[600, dx, 600],
+        extents=[wg_length/5, dx, wg_length/5],
         mode_num=0,
         normal=[0, -1, 0],
         power=1.0,
